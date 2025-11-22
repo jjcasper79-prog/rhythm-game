@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>음악 교육용 리듬 패턴 에디터 (공유 가능)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols:wght@400&display=swap');
+
+        body { font-family: 'Arial', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; background-color: #f8f9fa; margin: 0; padding: 20px; }
+        .container { background-color: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 25px rgba(0,0,0,0.1); max-width: 1200px; width: 95%; font-family: 'Arial', sans-serif; }
+        h1 { color: #212529; margin-bottom: 10px; text-align: center; }
+        p.subtitle { text-align: center; color: #495057; font-size: 1em; margin-bottom: 25px; font-weight: bold; }
+
+        /* Controls */
+        .controls-area { display: flex; justify-content: center; gap: 30px; background: #e9ecef; padding: 20px; border-radius: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .select-group { display: flex; flex-direction: column; align-items: center; }
+        .select-group label { font-weight: bold; margin-bottom: 5px; color: #495057; font-size: 0.9em; }
+        .select-group select { padding: 8px 20px; border-radius: 5px; border: 1px solid #ced4da; font-size: 1em; cursor: pointer; font-family: 'Arial', sans-serif; }
+
+        /* Rhythm Creation Area */
+        .rhythm-creation-area { 
+            border: 3px solid #4dabf7; min-height: 160px; background-color: #e7f5ff; border-radius: 8px; 
+            display: flex; margin-bottom: 10px; overflow-x: auto; padding: 10px; gap: 8px; align-items: center;
+        }
+
+        /* Measure */
+        .measure {
+            flex: 1; min-width: 280px; border-right: 4px solid #adb5bd; padding: 35px 5px 5px 5px; 
+            display: flex; flex-wrap: wrap; align-content: center; align-items: center; gap: 4px;
+            position: relative; background-color: #fff; transition: background-color 0.2s; min-height: 80px;
+        }
+        .measure:last-child { border-right: 6px double #212529; }
+        .measure.drag-over { background-color: #d0ebff; border: 2px solid #339af0; }
+
+        /* Measure Info */
+        .measure-info { 
+            position: absolute; top: 5px; right: 5px; font-size: 0.9em; font-weight: bold; 
+            color: #6c757d; pointer-events: none; background: #f1f3f5; padding: 3px 10px;
+            border-radius: 15px; font-family: 'Arial', sans-serif;
+        }
+
+        /* Selection Area */
+        .selection-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; width: 100%; }
+        .row-group { border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background-color: #fff; width: 100%; box-sizing: border-box; }
+        .row-group h3 { margin: 0 0 10px 0; font-size: 1.1em; color: #333; border-bottom: 2px solid #f8f9fa; padding-bottom: 5px; font-family: 'Arial', sans-serif; }
+
+        /* Horizontal List */
+        .horizontal-list { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-start; }
+
+        /* Block Styling */
+        .block { 
+            height: 60px; border-radius: 6px; display: flex; align-items: center; 
+            justify-content: center; font-size: 2.8em; font-weight: normal; cursor: grab; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #212529; user-select: none;
+            background-color: #fff; line-height: 1; padding-bottom: 8px; box-sizing: border-box;
+            flex-shrink: 0; 
+            font-family: 'Noto Sans Symbols', sans-serif; 
+        }
+        .block:active { cursor: grabbing; }
+        .block.dragging { opacity: 0.4; }
+        .block.playing { box-shadow: 0 0 15px 3px #198754; transform: scale(1.05); transition: transform 0.1s, box-shadow 0.1s; }
+
+        /* Visuals */
+        .note-block { background-color: #ffe066; border: 1px solid #fcc419; }
+        .rest-block { background-color: #f8f9fa !important; border: 2px dashed #adb5bd; color: #495057 !important; }
+
+        /* ★ Precise Width System ★ */
+        .w4 { width: 200px; background-color: #ff8787; color: white; } 
+        .w3 { width: 150px; background-color: #ffa94d; } 
+        .w2 { width: 100px; background-color: #ffd43b; } 
+        .w1_5 { width: 75px; background-color: #74c0fc; } 
+        .w1 { width: 50px; background-color: #63e6be; } 
+        .w0_75 { width: 37.5px; background-color: #20c997; color: white; font-size: 2.0em;} 
+        .w0_5 { width: 25px; background-color: #339af0; color: white; font-size: 2.0em;} 
+        .w0_375 { width: 18.75px; background-color: #5c7cfa; color: white; font-size: 1.8em; } 
+        .w0_25 { width: 12.5px; background-color: #845ef7; color: white; font-size: 1.8em; } 
+
+        .status-message { text-align: center; margin: 15px 0; height: 24px; font-weight: bold; color: #e03131; font-size: 1.1em; }
+
+        .controls { margin-top: 20px; display: flex; justify-content: center; gap: 15px; }
+        .control-button { background-color: #495057; color: white; padding: 12px 35px; border: none; border-radius: 5px; cursor: pointer; font-size: 1.1em; transition: 0.2s; font-family: 'Arial', sans-serif; }
+        .control-button#playButton { background-color: #198754; }
+        .control-button#shareButton { background-color: #339af0; }
+
+        /* Share Link Area */
+        .share-link-area {
+            background: #e7f5ff; border: 1px solid #339af0; padding: 15px; border-radius: 8px;
+            margin-top: 15px; display: none; flex-direction: column; align-items: center;
+        }
+        .share-link-area.active { display: flex; }
+        .share-link-area label { font-weight: bold; margin-bottom: 8px; color: #1c7ed6; }
+        .share-link-area input { 
+            width: 90%; max-width: 600px; padding: 10px; border: 1px solid #74c0fc; 
+            border-radius: 5px; font-size: 0.9em; text-align: center; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>나만의 리듬 창작하기</h1>
+        <p class="subtitle">음악 교육용 리듬 패턴 에디터</p>
+        
+        <div class="controls-area">
+            <div class="select-group">
+                <label>박자</label>
+                <select id="timeSignature">
+                    <option value="4/4" selected>4/4박자 (4박)</option>
+                    <option value="3/4">3/4박자 (3박)</option>
+                    <option value="2/4">2/4박자 (2박)</option>
+                </select>
+            </div>
+            
+            <div class="select-group">
+                <label>빠르기 (Tempo)</label>
+                <select id="tempoSelect">
+                    <option value="80" data-label="안단테 (Andante)">안단테 (80)</option>
+                    <option value="100" data-label="안단티노 (Andantino)" selected>안단티노 (100)</option>
+                    <option value="110" data-label="모데라토 (Moderato)">모데라토 (110)</option>
+                    <option value="130" data-label="알레그레토 (Allegretto)">알레그레토 (130)</option>
+                    <option value="150" data-label="알레그로 (Allegro)">알레그로 (150)</option>
+                </select>
+            </div>
+            
+            <div class="select-group">
+                <label>마디 수</label>
+                <select id="measureCount">
+                    <option value="2" selected>2마디</option>
+                    <option value="4">4마디</option>
+                    <option value="8">8마디</option>
+                </select>
+            </div>
+            <div class="select-group">
+                <label>악기</label>
+                <select id="instrument" disabled>
+                    <option value="drum" selected>드럼 (Drum)</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="rhythmCreationArea" class="rhythm-creation-area"></div>
+        <div id="statusMessage" class="status-message"></div>
+        
+        <div id="shareLinkArea" class="share-link-area">
+            <label>아래 URL을 복사하여 공유하십시오. (자동 복사 실패 시 수동 복사)</label>
+            <input type="text" id="shareLinkInput" readonly>
+        </div>
+        
+        <p class="remove-hint">💡 블록을 상자 밖으로 끌어내면 **삭제**됩니다.</p>
+
+        <div class="selection-container">
+            
+            <div class="row-group">
+                <h3>음표 (Notes) - 드래그하여 마디에 넣으세요</h3>
+                <div class="horizontal-list" id="noteSelection">
+                    <div id="wholeNote" class="block note-block w4" draggable="true" data-type="note" data-duration="4" data-label="온음표">𝅝</div>
+                    <div class="block note-block w3" draggable="true" data-type="note" data-duration="3" data-label="점2분음표">𝅗𝅥.</div>
+                    <div class="block note-block w2" draggable="true" data-type="note" data-duration="2" data-label="2분음표">𝅗𝅥</div>
+                    <div class="block note-block w1_5" draggable="true" data-type="note" data-duration="1.5" data-label="점4분음표">♩.</div>
+                    <div class="block note-block w1" draggable="true" data-type="note" data-duration="1" data-label="4분음표">♩</div>
+                    <div class="block note-block w0_75" draggable="true" data-type="note" data-duration="0.75" data-label="점8분음표">♪.</div>
+                    <div class="block note-block w0_5" draggable="true" data-type="note" data-duration="0.5" data-label="8분음표">♪</div>
+                    <div class="block note-block w0_375" draggable="true" data-type="note" data-duration="0.375" data-label="점16분음표">𝅘𝅥𝅯.</div>
+                    <div class="block note-block w0_25" draggable="true" data-type="note" data-duration="0.25" data-label="16분음표">𝅘𝅥𝅯</div>
+                </div>
+            </div>
+
+            <div class="row-group">
+                <h3>쉼표 (Rests) - 드래그하여 마디에 넣으세요</h3>
+                <div class="horizontal-list" id="restSelection">
+                    <div id="wholeRest" class="block rest-block w4" draggable="true" data-type="rest" data-duration="4" data-label="온쉼표">𝄻</div>
+                    <div class="block rest-block w3" draggable="true" data-type="rest" data-duration="3" data-label="점2분쉼표">𝄼.</div>
+                    <div class="block rest-block w2" draggable="true" data-type="rest" data-duration="2" data-label="2분쉼표">𝄼</div>
+                    <div class="block rest-block w1_5" draggable="true" data-type="rest" data-duration="1.5" data-label="점4분쉼표">𝄽.</div>
+                    <div class="block rest-block w1" draggable="true" data-type="rest" data-duration="1" data-label="4분쉼표">𝄽</div>
+                    <div class="block rest-block w0_75" draggable="true" data-type="rest" data-duration="0.75" data-label="점8분쉼표">𝄾.</div>
+                    <div class="block rest-block w0_5" draggable="true" data-type="rest" data-duration="0.5" data-label="8분쉼표">𝄾</div>
+                    <div class="block rest-block w0_375" draggable="true" data-type="rest" data-duration="0.375" data-label="점16분쉼표">𝄿.</div>
+                    <div class="block rest-block w0_25" draggable="true" data-type="rest" data-duration="0.25" data-label="16분쉼표">𝄿</div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="controls">
+            <button id="playButton" class="control-button">▶ 재생 (드럼)</button>
+            <button id="shareButton" class="control-button">🔗 공유하기</button>
+            <button id="clearButton" class="control-button">↺ 초기화</button>
+        </div>
+    </div>
+
+    <script>
+        // ===========================================
+        // ★★★ JavaScript 코드 영역 ★★★
+        // ===========================================
+        let audioContext;
+        const MULTIPLIER = 1000;
+        let isDroppedInMeasure = false; 
+
+        // ---------------------------------------------
+        // ★★★ UTF-8 안전 인코딩/디코딩 함수 (InvalidCharacterError 해결 핵심) ★★★
+        // ---------------------------------------------
+        function b64EncodeUnicode(str) {
+            // 1. 문자열을 UTF-8로 인코딩
+            const utf8Str = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, 
+                function(match, p1) {
+                    return String.fromCharCode('0x' + p1);
+                }
+            );
+            // 2. Base64로 인코딩 (Latin1 범위 내의 문자열로 변환)
+            return btoa(utf8Str);
+        }
+
+        function b64DecodeUnicode(str) {
+            // 1. Base64 디코딩
+            const b64DecodedStr = atob(str);
+            // 2. UTF-8 디코딩
+            try {
+                return decodeURIComponent(b64DecodedStr.split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+            } catch(e) {
+                console.error("UTF-8 디코딩 실패:", e);
+                return "";
+            }
+        }
+        
+        // ---------------------------------------------
+        // ★★★ 공유 기능 관련 함수 ★★★
+        // ---------------------------------------------
+        /**
+         * 현재 리듬 상태를 인코딩된 문자열로 반환합니다.
+         */
+        function encodeRhythm() {
+            const measures = document.querySelectorAll('.measure');
+            const rhythmData = [];
+            
+            measures.forEach(measure => {
+                const measureData = [];
+                measure.querySelectorAll('.block').forEach(block => {
+                    const duration = parseFloat(block.dataset.duration);
+                    const type = block.dataset.type === 'note' ? 'n' : 'r'; 
+                    // 텍스트에 쉼표(,), 콜론(:), 세미콜론(;)이 포함될 수 있으므로, 
+                    // Base64 인코딩 전에 텍스트 자체는 URI 인코딩하지 않고 원본을 사용합니다.
+                    const text = block.textContent; 
+                    const widthClass = getWidthClass(duration);
+                    
+                    // 데이터 포맷: duration:type:text:widthClass
+                    measureData.push(`${duration}:${type}:${text}:${widthClass}`);
+                });
+                rhythmData.push(measureData.join(','));
+            });
+            
+            const timeSig = document.getElementById('timeSignature').value;
+            const measureCount = document.getElementById('measureCount').value;
+
+            // 최종 데이터 포맷: timeSig|measureCount|measure1_data;measure2_data
+            const rawData = `${timeSig}|${measureCount}|${rhythmData.join(';')}`;
+            
+            // UTF-8 안전 인코딩 함수 사용
+            return b64EncodeUnicode(rawData);
+        }
+
+        /**
+         * 인코딩된 문자열을 해독하여 리듬을 재생성합니다.
+         */
+        function decodeRhythm(encodedData, createBlockElement, updateMeasureStatus, handleDragOver, handleDragLeave, handleMeasureDrop, updateWholeNoteSettings) {
+            const rhythmArea = document.getElementById('rhythmCreationArea');
+            try {
+                const rawData = b64DecodeUnicode(encodedData); 
+                const parts = rawData.split('|');
+                if (parts.length !== 3) return false;
+                
+                const [timeSig, measureCount, rhythmStrings] = parts;
+                
+                const timeSigSel = document.getElementById('timeSignature');
+                const measureCntSel = document.getElementById('measureCount');
+                
+                // 박자 및 마디 수 설정
+                if (timeSigSel.querySelector(`option[value="${timeSig}"]`)) timeSigSel.value = timeSig;
+                if (measureCntSel.querySelector(`option[value="${measureCount}"]`)) measureCntSel.value = measureCount;
+                
+                updateWholeNoteSettings();
+                
+                rhythmArea.innerHTML = '';
+                
+                const measureRhythms = rhythmStrings.split(';');
+
+                const currentMeasureCount = parseInt(measureCntSel.value);
+                const targetMeasureCount = Math.max(measureRhythms.length, currentMeasureCount);
+                
+                for (let i = 0; i < targetMeasureCount; i++) {
+                    const measure = document.createElement('div');
+                    measure.className = 'measure';
+                    measure.dataset.id = i;
+                    
+                    measure.addEventListener('dragover', handleDragOver);
+                    measure.addEventListener('dragleave', handleDragLeave);
+                    measure.addEventListener('drop', handleMeasureDrop);
+
+                    const info = document.createElement('div');
+                    info.className = 'measure-info';
+                    measure.appendChild(info);
+                    rhythmArea.appendChild(measure);
+
+                    if (i < measureRhythms.length) {
+                         const blocks = measureRhythms[i].split(',');
+                         blocks.forEach(blockStr => {
+                             if (blockStr) {
+                                 const parts = blockStr.split(':');
+                                 // duration:type:text:widthClass
+                                 if(parts.length < 4) return;
+                                 
+                                 const [duration, typeCode, text, widthClass] = parts;
+                                 const data = {
+                                     duration: duration,
+                                     type: typeCode === 'n' ? 'note' : 'rest',
+                                     label: '', 
+                                     text: text, // 음악 기호 텍스트
+                                 };
+                                 const el = createBlockElement(data);
+                                 // widthClass는 인코딩 데이터에 포함되어 있지만, createBlockElement 내부에서 다시 계산되므로 
+                                 // 여기서는 명시적으로 설정된 데이터만 사용합니다.
+                                 // el.className = `block ${data.type === 'note' ? 'note-block' : 'rest-block'} ${widthClass}`; // createBlockElement에서 이미 처리됨
+                                 measure.appendChild(el);
+                             }
+                         });
+                    }
+                    updateMeasureStatus(measure); 
+                }
+                
+                return true;
+            } catch (e) {
+                console.error("Rhythm decoding error:", e);
+                return false;
+            }
+        }
+
+        // ---------------------------------------------
+        // ★★★ 기본 유틸리티 함수 (변경 없음) ★★★
+        // ---------------------------------------------
+        function getTempo() {
+            return parseInt(document.getElementById('tempoSelect').value);
+        }
+
+        function toInt(beat) {
+            return Math.round(parseFloat(beat) * MULTIPLIER);
+        }
+        function toBeat(intVal) {
+            return intVal / MULTIPLIER;
+        }
+
+        function getWidthClass(duration) {
+            if(duration == 4) return 'w4';
+            if(duration == 3) return 'w3';
+            if(duration == 2) return 'w2';
+            if(duration == 1.5) return 'w1_5';
+            if(duration == 1) return 'w1';
+            if(duration == 0.75) return 'w0_75';
+            if(duration == 0.5) return 'w0_5';
+            if(duration == 0.375) return 'w0_375';
+            if(duration == 0.25) return 'w0_25';
+            return 'w1'; 
+        }
+
+        // ===========================================
+        // ★★★ DOMContentLoaded 영역 (이벤트 및 보조 함수) ★★★
+        // ===========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // 변수 정의
+            const rhythmArea = document.getElementById('rhythmCreationArea');
+            const statusMsg = document.getElementById('statusMessage');
+            const timeSigSel = document.getElementById('timeSignature');
+            const measureCntSel = document.getElementById('measureCount');
+            const tempoSel = document.getElementById('tempoSelect'); 
+            
+            const wholeNoteBlock = document.getElementById('wholeNote');
+            const wholeRestBlock = document.getElementById('wholeRest');
+            
+            const shareLinkArea = document.getElementById('shareLinkArea');
+            const shareLinkInput = document.getElementById('shareLinkInput');
+            const shareButton = document.getElementById('shareButton'); 
+            
+            let draggedItem = null;
+            let sourceMeasure = null;
+            
+            // --- 보조 함수 정의 ---
+            function updateWholeNoteSettings() {
+                const beats = getBeatsPerMeasureInt() / MULTIPLIER; 
+                
+                wholeNoteBlock.dataset.duration = beats;
+                wholeRestBlock.dataset.duration = beats;
+
+                const classes = ['w4', 'w3', 'w2', 'w1', 'w1_5', 'w0_75', 'w0_5', 'w0_25', 'w0_375'];
+                wholeNoteBlock.classList.remove(...classes);
+                wholeRestBlock.classList.remove(...classes);
+
+                const newClass = getWidthClass(beats); 
+                wholeNoteBlock.classList.add(newClass);
+                wholeRestBlock.classList.add(newClass);
+            }
+            
+            function generateMeasures() {
+                rhythmArea.innerHTML = '';
+                const count = parseInt(measureCntSel.value);
+                
+                for(let i=0; i<count; i++) {
+                    const measure = document.createElement('div');
+                    measure.className = 'measure';
+                    measure.dataset.id = i;
+                    
+                    measure.addEventListener('dragover', handleDragOver);
+                    measure.addEventListener('dragleave', handleDragLeave);
+                    measure.addEventListener('drop', handleMeasureDrop);
+                    
+                    const info = document.createElement('div');
+                    info.className = 'measure-info';
+                    measure.appendChild(info);
+
+                    rhythmArea.appendChild(measure);
+                    updateMeasureStatus(measure);
+                }
+            }
+
+            function getBeatsPerMeasureInt() {
+                return toInt(timeSigSel.value.split('/')[0]);
+            }
+
+            function getMeasureTotalInt(measure) {
+                let total = 0;
+                measure.querySelectorAll('.block').forEach(b => {
+                    total += toInt(b.dataset.duration);
+                });
+                return total;
+            }
+
+            function updateMeasureStatus(measure) {
+                const max = getBeatsPerMeasureInt(); 
+                const current = getMeasureTotalInt(measure);
+                const remaining = max - current;
+                
+                const info = measure.querySelector('.measure-info');
+
+                measure.classList.remove('overflow');
+                measure.style.backgroundColor = '#fff';
+                measure.style.borderColor = '#adb5bd';
+                info.style.color = '#6c757d';
+
+                if (current > max) {
+                    measure.classList.add('overflow');
+                    measure.style.backgroundColor = '#fff5f5';
+                    measure.style.borderColor = '#fa5252';
+                    info.textContent = `❌ ${toBeat(Math.abs(remaining))}박 초과`;
+                    info.style.color = '#fa5252';
+                } else if (current === max) {
+                    measure.style.backgroundColor = '#ebfbee'; 
+                    measure.style.borderColor = '#40c057';
+                    info.textContent = `✅ ${toBeat(max)}박 완성`;
+                    info.style.color = '#2f9e44';
+                } else {
+                    info.textContent = `${toBeat(remaining)}박 남음`;
+                }
+            }
+
+            // --- Drag & Drop 핸들러 ---
+            function handleDragStart(e) {
+                draggedItem = this;
+                sourceMeasure = this.closest('.measure');
+                
+                const data = {
+                    type: this.dataset.type,
+                    duration: this.dataset.duration,
+                    label: this.dataset.label,
+                    text: this.textContent,
+                };
+                
+                e.dataTransfer.setData('text/plain', JSON.stringify(data));
+                e.dataTransfer.effectAllowed = 'copyMove';
+                setTimeout(() => this.classList.add('dragging'), 0);
+            }
+
+            function handleDragEnd(e) {
+                this.classList.remove('dragging');
+                document.querySelectorAll('.measure').forEach(m => m.classList.remove('drag-over'));
+                
+                if (sourceMeasure && draggedItem && !isDroppedInMeasure && sourceMeasure.contains(draggedItem)) {
+                     draggedItem.remove();
+                     updateMeasureStatus(sourceMeasure);
+                     statusMsg.textContent = '🗑️️ 블록이 삭제되었습니다.';
+                     setTimeout(() => statusMsg.textContent = '', 1500);
+                }
+                
+                draggedItem = null;
+                sourceMeasure = null;
+                isDroppedInMeasure = false; 
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault(); 
+                this.classList.add('drag-over');
+            }
+
+            function handleDragLeave(e) {
+                this.classList.remove('drag-over');
+            }
+
+            function handleMeasureDrop(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.classList.remove('drag-over');
+                
+                isDroppedInMeasure = true; 
+
+                let data;
+                try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch(err) { return; }
+                
+                const newDurInt = toInt(data.duration);
+                const currentTotalInt = getMeasureTotalInt(this);
+                const maxInt = getBeatsPerMeasureInt();
+
+                if (draggedItem && sourceMeasure === this) {
+                    insertBlock(this, draggedItem, e.clientX);
+                    updateMeasureStatus(this);
+                    return;
+                }
+
+                if (currentTotalInt + newDurInt > maxInt) {
+                    statusMsg.textContent = `⚠️ 공간 부족!`;
+                    setTimeout(() => statusMsg.textContent = '', 2000);
+                    return;
+                }
+
+                let blockToInsert;
+                if (draggedItem && sourceMeasure) {
+                    blockToInsert = draggedItem;
+                } else {
+                    blockToInsert = createBlockElement(data);
+                }
+
+                insertBlock(this, blockToInsert, e.clientX);
+                updateMeasureStatus(this);
+                if (sourceMeasure && sourceMeasure !== this) {
+                    updateMeasureStatus(sourceMeasure);
+                    if(draggedItem && sourceMeasure.className.includes('measure')) {
+                         draggedItem.remove();
+                    }
+                }
+            }
+
+            function insertBlock(measure, block, clientX) {
+                const siblings = [...measure.querySelectorAll('.block:not(.dragging)')];
+                const nextSibling = siblings.find(sibling => {
+                    const box = sibling.getBoundingClientRect();
+                    return clientX < box.left + box.width / 2;
+                });
+                
+                if (nextSibling) measure.insertBefore(block, nextSibling);
+                else measure.appendChild(block);
+            }
+
+            function createBlockElement(data) {
+                const el = document.createElement('div');
+                let typeClass = data.type === 'note' ? 'note-block' : 'rest-block';
+                let widthClass = getWidthClass(parseFloat(data.duration));
+                
+                el.className = `block ${typeClass} ${widthClass}`;
+                el.draggable = true;
+                el.dataset.type = data.type;
+                el.dataset.duration = data.duration;
+                el.dataset.label = data.label;
+                el.textContent = data.text;
+
+                el.addEventListener('dragstart', handleDragStart);
+                el.addEventListener('dragend', handleDragEnd);
+                return el;
+            }
+            
+            // --- 초기화 및 URL 복원 로직 ---
+            function init() {
+                // URL 복원 로직
+                const urlParams = new URLSearchParams(window.location.search);
+                const encodedRhythm = urlParams.get('rhythm');
+                
+                if (encodedRhythm) {
+                    if (decodeRhythm(encodedRhythm, createBlockElement, updateMeasureStatus, handleDragOver, handleDragLeave, handleMeasureDrop, updateWholeNoteSettings)) {
+                        statusMsg.textContent = '🎉 공유된 리듬을 성공적으로 불러왔습니다!';
+                    } else {
+                        statusMsg.textContent = '❌ 공유된 리듬 데이터가 손상되었습니다. 기본 마디로 시작합니다.';
+                        generateMeasures(); 
+                    }
+                } else {
+                    generateMeasures();
+                }
+                
+                updateWholeNoteSettings(); 
+                
+                const allBlocks = document.querySelectorAll('.block');
+                allBlocks.forEach(block => {
+                    // 중복 방지를 위해 기존 리스너 제거 후 다시 부착
+                    block.removeEventListener('dragstart', handleDragStart);
+                    block.removeEventListener('dragend', handleDragEnd);
+                    block.addEventListener('dragstart', handleDragStart);
+                    block.addEventListener('dragend', handleDragEnd);
+                });
+
+                document.addEventListener('dragover', (e) => e.preventDefault());
+                
+                shareLinkArea.classList.remove('active');
+            }
+
+            // --- 이벤트 리스너 ---
+            timeSigSel.addEventListener('change', () => {
+                updateWholeNoteSettings();
+                generateMeasures();
+            });
+
+            measureCntSel.addEventListener('change', generateMeasures);
+            document.getElementById('clearButton').addEventListener('click', generateMeasures);
+
+            tempoSel.addEventListener('change', () => {
+                const selectedOption = tempoSel.options[tempoSel.selectedIndex];
+                const tempoLabel = selectedOption.dataset.label;
+                statusMsg.textContent = `🎵 빠르기가 "${tempoLabel}" (${getTempo()} BPM)으로 변경되었습니다.`;
+                setTimeout(() => statusMsg.textContent = '', 3000);
+            });
+            
+            // --- 공유 버튼 이벤트 리스너 ---
+            shareButton.addEventListener('click', () => {
+                const encoded = encodeRhythm(); 
+                let shareUrl;
+
+                // 1. 현재 파일의 경로 가져오기 (로컬 파일 실행 시 경로가 file:/// 로 시작)
+                try {
+                    const baseUrl = window.location.href.split('?')[0].split('#')[0];
+                    shareUrl = `${baseUrl}?rhythm=${encoded}`;
+                } catch (e) {
+                    // 예외 발생 시 (매우 안전한 로컬 환경), 임시 메시지 사용
+                    shareUrl = `https://blog.naver.com/parosaone/221730713052?rhythm=${encoded}`;
+                }
+
+                shareLinkInput.value = shareUrl;
+
+                shareLinkArea.classList.add('active');
+                
+                // 텍스트 선택 및 포커스
+                setTimeout(() => {
+                    if (shareLinkInput) {
+                        shareLinkInput.select(); 
+                        shareLinkInput.focus(); 
+                    }
+                }, 50); 
+
+                // 클립보드 자동 복사 시도
+                try {
+                    if (navigator.clipboard) {
+                         navigator.clipboard.writeText(shareUrl).then(() => {
+                            statusMsg.textContent = `✅ 링크가 클립보드에 **자동 복사**되었습니다! (새 창에서 열어 복원 확인)`;
+                         }).catch(() => {
+                             statusMsg.textContent = `📢 **자동 복사 실패.** 위의 링크 필드를 **전체 복사(Ctrl+A 후 Ctrl+C)**하여 공유하십시오.`;
+                         });
+                    } else if (document.execCommand('copy')) { // 구형 브라우저 지원
+                         statusMsg.textContent = `✅ 링크가 클립보드에 **자동 복사**되었습니다!`;
+                    } else {
+                         statusMsg.textContent = `📢 **자동 복사 실패.** 위의 링크 필드를 **전체 복사(Ctrl+A 후 Ctrl+C)**하여 공유하십시오.`;
+                    }
+                } catch (err) {
+                    statusMsg.textContent = `📢 **자동 복사 실패.** 위의 링크 필드를 **전체 복사(Ctrl+A 후 Ctrl+C)**하여 공유하십시오.`;
+                }
+            });
+
+            // --- 재생 로직 ---
+            document.getElementById('playButton').addEventListener('click', async () => {
+                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioContext.state === 'suspended') await audioContext.resume();
+
+                const blocks = document.querySelectorAll('.measure .block');
+                if (blocks.length === 0) return alert('재생할 블록이 없습니다.');
+
+                const currentTempo = getTempo();
+                const secondsPerBeat = 60 / currentTempo; 
+
+                let currentTime = audioContext.currentTime + 0.1;
+                const measures = document.querySelectorAll('.measure');
+                
+                document.querySelectorAll('.block.playing').forEach(b => b.classList.remove('playing'));
+
+                measures.forEach(measure => {
+                    measure.querySelectorAll('.block').forEach(block => {
+                        const duration = parseFloat(block.dataset.duration) * secondsPerBeat; 
+                        
+                        const start = currentTime;
+                        const end = currentTime + duration;
+
+                        setTimeout(() => block.classList.add('playing'), (start - audioContext.currentTime) * 1000);
+                        setTimeout(() => block.classList.remove('playing'), (end - audioContext.currentTime) * 1000);
+
+                        if (block.dataset.type === 'note') {
+                            playDrumSound(start, secondsPerBeat);
+                        }
+                        currentTime += duration;
+                    });
+                });
+            });
+
+            function playDrumSound(time, secondsPerBeat) {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                const decayTime = secondsPerBeat * 0.5;
+
+                // 드럼/퍼커션 소리를 위해 주파수를 낮게 설정하고 빠르게 감쇠시킵니다.
+                osc.frequency.setValueAtTime(150, time);
+                osc.frequency.exponentialRampToValueAtTime(0.01, time + decayTime);
+                
+                gain.gain.setValueAtTime(5, time); 
+                gain.gain.exponentialRampToValueAtTime(0.01, time + decayTime);
+
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                osc.start(time);
+                osc.stop(time + decayTime);
+            }
+
+            // 최종 초기화
+            init();
+        });
+    </script>
+</body>
+</html>
